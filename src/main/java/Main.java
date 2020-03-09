@@ -1,5 +1,8 @@
 import org.apache.commons.io.FileUtils;
+import org.bytedeco.javacv.Frame;
+import org.bytedeco.javacv.FrameGrabber;
 
+import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -36,6 +39,7 @@ public class Main {
             ) {
                 System.out.println("Client connected: " + client.getRemoteSocketAddress().toString());
 
+                Thread.sleep(1000);
                 byte[] readByte = new byte[1];
                 String incomingDataString = "";
                 while (clientInputStream.available() > 0) {
@@ -112,7 +116,7 @@ public class Main {
             }
         });
 
-        Thread.currentThread().sleep(10000);
+        Thread.currentThread().sleep(30000);
         recProcess.destroyForcibly();
 
         if(currentOs == OS.Windows) {
@@ -164,6 +168,36 @@ public class Main {
         File processedVid = new File(rawFile.getParent(), rawFile.getName() + ".mp4");
         rawFile.delete();
         return processedVid;
+    }
+
+    private static boolean isVideoRelevant(File video){
+
+    }
+
+    private static BufferedImage[] getImages(File video){
+        FrameGrabber asd;
+        Frame asd2;
+        asd2
+    }
+
+    private static double getImageVal(BufferedImage bufferedImage){
+        int widht = bufferedImage.getWidth();
+        int height = bufferedImage.getHeight();
+        int countPixels = height * widht;
+
+        int rgbSum = 0;
+        /*int[] rgbArray = new int[height * widht];
+        int rgbArrayIndex = 0;*/
+        for(int i = 0;i<widht;i++){
+            for(int j = 0;j<height;j++){
+                int rGB = bufferedImage.getRGB(i, j);
+                rgbSum += rGB;
+                /*rgbArray[rgbArrayIndex] = rGB;
+                rgbArrayIndex++;*/
+            }
+        }
+        double val = (double) rgbSum * (double) countPixels;
+        return Math.abs(val);
     }
 
     public static ExecutorService getExecutorService() {
