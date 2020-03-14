@@ -1,14 +1,19 @@
 import org.apache.commons.io.FileUtils;
+import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.FrameGrabber;
+import org.bytedeco.javacv.Java2DFrameConverter;
 
+import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.time.LocalDateTime;
-import java.util.Properties;
-import java.util.Scanner;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -17,6 +22,12 @@ public class Main {
     private static ExecutorService executorService = Executors.newFixedThreadPool(4);
 
     public static void main(String[] args) {
+
+        //boolean isrelevant =isVideoRelevant(new File("D:\\Müll\\BirdCamTest\\vögel\\Bird2020-03-09T12_53_38.337828900.mjpeg.mp4"));
+       // boolean isrelevant =isVideoRelevant(new File("D:\\Müll\\BirdCamTest\\Bird2020-03-09T14_31_14.930863700.mjpeg.mp4"));
+        boolean isrelevant =isVideoRelevant(new File("D:\\Müll\\BirdCamTest\\vögel\\Bird2020-03-09T14_37_13.765632700.mjpeg.mp4"));
+
+
         System.out.println("Starting BirdcamServer");
 
         boolean exit = false;
@@ -171,33 +182,89 @@ public class Main {
     }
 
     private static boolean isVideoRelevant(File video){
+        BufferedImage oldBI;
+        int timesRelevant = 0;
+        //Boolean true if there were hits with relevance when comparing a picture
+        List<BufferedImage> picturesList = getImages(video);
 
+
+        oldBI = picturesList.get(0);
+        for(BufferedImage bufferedImage: picturesList){
+            timesRelevant += isPicRelevant(oldBI, bufferedImage) ? 1 : 0;
+            oldBI = bufferedImage;
+        }
+
+        //if more then 1 times relevant then regard as relevant video
+        return timesRelevant > 1;
     }
 
-    private static BufferedImage[] getImages(File video){
-        FrameGrabber asd;
-        Frame asd2;
-        asd2
-    }
+    private static List<BufferedImage> getImages(File video){
+        List<BufferedImage> images = new ArrayList<>();
 
-    private static double getImageVal(BufferedImage bufferedImage){
-        int widht = bufferedImage.getWidth();
-        int height = bufferedImage.getHeight();
-        int countPixels = height * widht;
+        try(FFmpegFrameGrabber fFmpegFrameGrabber = new FFmpegFrameGrabber(video)){
+            fFmpegFrameGrabber.start();
+            Java2DFrameConverter converter = new Java2DFrameConverter();
 
-        int rgbSum = 0;
-        /*int[] rgbArray = new int[height * widht];
-        int rgbArrayIndex = 0;*/
-        for(int i = 0;i<widht;i++){
-            for(int j = 0;j<height;j++){
-                int rGB = bufferedImage.getRGB(i, j);
-                rgbSum += rGB;
-                /*rgbArray[rgbArrayIndex] = rGB;
-                rgbArrayIndex++;*/
+            Frame frameReference;
+            for(int i =0;i<fFmpegFrameGrabber.getLengthInFrames();i++){
+                frameReference = fFmpegFrameGrabber.grabImage();
+
+                if(frameReference == null) {
+                    break;
+                }
+                BufferedImage bufferedImage = converter.convert(frameReference);
+
+                images.add(Java2DFrameConverter.cloneBufferedImage(bufferedImage));
+            }
+        }catch (Exception e){
+            if(!e.getClass().equals(NullPointerException.class)){
+                e.printStackTrace();
             }
         }
-        double val = (double) rgbSum * (double) countPixels;
-        return Math.abs(val);
+        return images;
+    }
+
+
+   private static boolean isPicRelevant(BufferedImage bufferedImage, BufferedImage compareImage){
+           //BufferedImage imEins = ImageIO.read(new File("C:\\Users\\Marcel\\Desktop\\2020-03-08 20_41_27-Window.png"));
+           //BufferedImage imEins = ImageIO.read(new File("\\C:\\Users\\Marcel\\Desktop\\keinVogel.png"));
+           //BufferedImage imZwei = ImageIO.read(new File("C:\\Users\\Marcel\\Desktop\\2020-03-08 20_41_47-Window.png"));
+           //BufferedImage imZwei = ImageIO.read(new File("D:\\Pictures\\Polen 14\\DCIM\\101MSDCF\\DSC01179.JPG"));
+           //BufferedImage imZwei = ImageIO.read(new File("C:\\Users\\Marcel\\Desktop\\weiss.png"));
+           //BufferedImage imZwei = ImageIO.read(new File("C:\\Users\\Marcel\\Desktop\\Vogel.png"));
+           //BufferedImage imZwei = ImageIO.read(new File("C:\\Users\\Marcel\\Desktop\\keinVogel2.png"));
+           List<PixelRegion> pixelRegions1 = getPixelRegions(bufferedImage);
+           List<PixelRegion> pixelRegions2 = getPixelRegions(compareImage);
+           for(int i = 0;i<pixelRegions1.size();i++){
+               System.out.println("");
+                System.out.println((pixelRegions1.get(i).getRegionAverage()));
+                System.out.println((pixelRegions2.get(i).getRegionAverage()));
+                 double compareValue = PixelRegion.getCompareVal(pixelRegions1.get(i).getRegionAverage(), pixelRegions2.get(i).getRegionAverage());
+            if(compareValue > 2000000){
+                return true;
+            }
+           }
+        return false;
+   }
+
+    private static List<PixelRegion> getPixelRegions(BufferedImage bufferedImage){
+        int pointsAmountX = 4;
+        int pointsAmountY = 3;
+
+        int pointShiftX = bufferedImage.getWidth() / pointsAmountX;
+        int pointShiftY = bufferedImage.getHeight() / pointsAmountY;
+
+        List<PixelRegion> pixelRegions = new ArrayList<>(pointsAmountX * pointsAmountY);
+        int imageLimitLeft = 10;
+        int imageLimitTop = 10;
+
+        for(int i = 0;i<pointsAmountX; i++){
+            for(int j = 0;j<pointsAmountY; j++){
+                pixelRegions.add(new PixelRegion(imageLimitLeft + i * pointShiftX, imageLimitTop + j * pointShiftY, bufferedImage));
+            }
+        }
+
+        return pixelRegions;
     }
 
     public static ExecutorService getExecutorService() {
