@@ -190,12 +190,13 @@ public class Main {
 
         oldBI = picturesList.get(0);
         for(BufferedImage bufferedImage: picturesList){
+            //checks if pic is relevant
             timesRelevant += isPicRelevant(oldBI, bufferedImage) ? 1 : 0;
             oldBI = bufferedImage;
         }
 
-        //if more then 1 times relevant then regard as relevant video
-        return timesRelevant > 1;
+        //if more then 2 times relevant then regard as relevant video
+        return timesRelevant > 2;
     }
 
     private static List<BufferedImage> getImages(File video){
@@ -233,6 +234,12 @@ public class Main {
            //BufferedImage imZwei = ImageIO.read(new File("C:\\Users\\Marcel\\Desktop\\weiss.png"));
            //BufferedImage imZwei = ImageIO.read(new File("C:\\Users\\Marcel\\Desktop\\Vogel.png"));
            //BufferedImage imZwei = ImageIO.read(new File("C:\\Users\\Marcel\\Desktop\\keinVogel2.png"));
+
+       /**
+        * This methods points out 12 regions in the images to compare.
+        * Those regions are compared to each other by their avery rgb values.
+        * If a value is different by a certain amount, then its considered to be relevant.
+        * */
            List<PixelRegion> pixelRegions1 = getPixelRegions(bufferedImage);
            List<PixelRegion> pixelRegions2 = getPixelRegions(compareImage);
            for(int i = 0;i<pixelRegions1.size();i++){
