@@ -14,12 +14,15 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class Main {
 
     private static ExecutorService executorService = Executors.newFixedThreadPool(4);
+
+    private static int counter = 0;
 
     public static void main(String[] args) {
 
@@ -182,21 +185,37 @@ public class Main {
     }
 
     private static boolean isVideoRelevant(File video){
-        BufferedImage oldBI;
-        int timesRelevant = 0;
+        Object lockObj = new Object();
+
+        counter = 0;
         //Boolean true if there were hits with relevance when comparing a picture
         List<BufferedImage> picturesList = getImages(video);
 
 
-        oldBI = picturesList.get(0);
-        for(BufferedImage bufferedImage: picturesList){
+        CountDownLatch countDownLatch = new CountDownLatch(picturesList.size() -1);
+        for(int i =0;i<picturesList.size() -1;i++){
             //checks if pic is relevant
-            timesRelevant += isPicRelevant(oldBI, bufferedImage) ? 1 : 0;
-            oldBI = bufferedImage;
+            int count = i;
+            getExecutorService().submit(()->{
+                boolean picRelevant = isPicRelevant(picturesList.get(count), picturesList.get(count +  1));
+                if(picRelevant){
+                    incrementCounter();
+                }
+                countDownLatch.countDown();
+            });
         }
 
+        try {
+            countDownLatch.await();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         //if more then 2 times relevant then regard as relevant video
-        return timesRelevant > 2;
+        return getCounter() > 2;
+    }
+
+    private static synchronized void incrementCounter(){
+            counter++;
     }
 
     private static List<BufferedImage> getImages(File video){
@@ -272,6 +291,10 @@ public class Main {
         }
 
         return pixelRegions;
+    }
+
+    public synchronized static int getCounter() {
+        return counter;
     }
 
     public static ExecutorService getExecutorService() {
